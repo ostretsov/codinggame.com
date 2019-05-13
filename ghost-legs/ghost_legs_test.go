@@ -1,17 +1,11 @@
 package ghost_legs
 
 import (
-	"bytes"
-	"strings"
+	"coding-game"
 	"testing"
 )
 
-type testCase struct {
-	name            string
-	in, expectedOut string
-}
-
-var testCases = []testCase{
+var testCases = []coding_game.TestCase{
 	{
 		"no links",
 		`7 7
@@ -79,17 +73,6 @@ E4
 
 func TestSolve(t *testing.T) {
 	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			in := strings.NewReader(testCase.in)
-			out := bytes.NewBuffer([]byte{})
-
-			solve(in, out)
-
-			got := string(out.Bytes())
-			expected := testCase.expectedOut
-			if strings.Compare(expected, got) != 0 {
-				t.Errorf("expected %v, got %v", expected, got)
-			}
-		})
+		coding_game.TestSolve(t, solve, testCase)
 	}
 }
