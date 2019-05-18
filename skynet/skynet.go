@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
+	"sort"
 )
 
 type node int
@@ -55,6 +57,14 @@ type treeNode struct {
 	parentTreeNode *treeNode
 }
 
+func (t treeNode) getDepth() (depth int) {
+	tn := t
+	for depth = 0; tn.parentTreeNode != nil; depth++ {
+		tn = *tn.parentTreeNode
+	}
+	return
+}
+
 func (t treeNode) getRootLink() (*link, error) {
 	if t.parentTreeNode == nil {
 		return nil, errors.New("Root treeNode does not have a parent!")
@@ -81,17 +91,17 @@ func (g *graph) unlink(targetLink *link) {
 
 func solve(in io.Reader, out io.Writer) {
 	var nodeCount, linkCount, gwCount int
-	fmt.Scanf("%d %d %d\n", &nodeCount, &linkCount, &gwCount)
+	fmt.Fscanf(in, "%d %d %d\n", &nodeCount, &linkCount, &gwCount)
 	links := []link{}
 	for i := 0; i < linkCount; i++ {
 		var n1, n2 node
-		fmt.Scanf("%d %d\n", &n1, &n2)
-		links := append(links, link{n1, n2})
+		fmt.Fscanf(in, "%d %d\n", &n1, &n2)
+		links = append(links, link{n1, n2})
 	}
 	gateways := []node{}
 	for i := 0; i < gwCount; i++ {
 		var gw node
-		fmt.Scanf("%d\n", &gw)
+		fmt.Fscanf(in, "%d\n", &gw)
 		gateways = append(gateways, gw)
 	}
 
@@ -99,15 +109,25 @@ func solve(in io.Reader, out io.Writer) {
 
 	var skynetNode node
 	for {
-		fmt.Scanf("%d\n", &skynetNode)
+		_, err := fmt.Fscanf(in, "%d\n", &skynetNode)
+		if err != nil {
+			break
+		}
 
 		closestTreeNodes := []treeNode{}
 
-		for _, gw := range gateways {
+		for gwi, gw := range gateways {
+			// remove an isolated gateway
+			linkedWithGwNodes := g.getLinkedNodes(gw, []node{})
+			if len(linkedWithGwNodes) == 0 {
+				gateways = append(gateways[:gwi], gateways[gwi+1:]...)
+				continue
+			}
+
 			virusNode := gw
+			rootTreeNode := treeNode{virusNode, nil}
 			visitedNodes := []node{virusNode}
 			queue := make(chan treeNode, 500)
-			rootTreeNode := treeNode{virusNode, nil}
 			queue <- rootTreeNode
 
 			var foundDstTreeNode treeNode
@@ -129,19 +149,18 @@ func solve(in io.Reader, out io.Writer) {
 			closestTreeNodes = append(closestTreeNodes, foundDstTreeNode)
 		}
 
-		// sort closesTreeNodes
-		// get closest to gw
-		// get root link
-		// sever the link
+		sort.Slice(closestTreeNodes, func(i, j int) bool {
+			return closestTreeNodes[i].getDepth() < closestTreeNodes[j].getDepth()
+		})
 
-		//fmt.Printf("Found dst tree node: %v\n", foundDstTreeNode)
-		//
-		//rootLink, err := foundDstTreeNode.getRootLink()
-		//if err != nil {
-		//	log.Fatal(err)
-		//}
-		//fmt.Printf("Root link: %v", rootLink)
-		//
-		//g.unlink(rootLink)
+		closestTreeNode := closestTreeNodes[0]
+		rootLink, err := closestTreeNode.getRootLink()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		g.unlink(rootLink)
+
+		fmt.Fprintf(out, "%d %d\n", rootLink.n1, rootLink.n2)
 	}
 }
